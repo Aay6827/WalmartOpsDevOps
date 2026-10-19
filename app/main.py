@@ -36,13 +36,17 @@ TRANSITIONS = {
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
     start = time.perf_counter()
-    response = await call_next(request)
-    route = request.scope.get("route")
-    path = route.path if route else "unmatched"
-    if path != "/metrics":
-        metrics.HTTP_REQUESTS.labels(request.method, path, str(response.status_code)).inc()
-        metrics.HTTP_LATENCY.labels(request.method, path).observe(time.perf_counter() - start)
-    return response
+    status_code = 500  # unhandled exceptions surface to clients as 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        route = request.scope.get("route")
+        path = route.path if route else "unmatched"
+        if path != "/metrics":
+            metrics.HTTP_REQUESTS.labels(request.method, path, str(status_code)).inc()
+            metrics.HTTP_LATENCY.labels(request.method, path).observe(time.perf_counter() - start)
 
 
 @app.get("/health/live")
