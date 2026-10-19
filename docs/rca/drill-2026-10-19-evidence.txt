@@ -1,0 +1,32 @@
+[10:36:07] DRILL: PostgreSQL outage under live traffic
+[10:36:07] Baseline API readiness: ready
+[10:36:07] Baseline alerts: LowStockSkus=pending
+[10:36:08] Background traffic started; letting baseline settle for 30s
+[10:36:38] Baseline: db_up=1.000  5xx_ratio=0.000
+[10:36:38] FAULT INJECTED: docker compose stop postgres
+[10:36:54] T+ 16s  db_up=1.000  5xx_ratio=0.000  alerts: LowStockSkus=pending
+[10:37:09] T+ 31s  db_up=0.000  5xx_ratio=0.000  alerts: LowStockSkus=pending
+[10:37:24] T+ 46s  db_up=0.000  5xx_ratio=0.035  alerts: DatabaseDown=pending, LowStockSkus=pending
+[10:37:39] T+ 61s  db_up=0.000  5xx_ratio=0.041  alerts: DatabaseDown=pending, LowStockSkus=pending
+[10:37:54] T+ 76s  db_up=0.000  5xx_ratio=0.051  alerts: LowStockSkus=pending, DatabaseDown=firing
+[10:37:54] ALERT FIRING: DatabaseDown at T+76s
+[10:38:09] T+ 91s  db_up=0.000  5xx_ratio=0.064  alerts: HighLatencyP95=pending, LowStockSkus=pending, DatabaseDown=firing
+[10:38:24] T+106s  db_up=0.000  5xx_ratio=0.073  alerts: HighErrorRate=pending, HighLatencyP95=pending, LowStockSkus=pending, DatabaseDown=firing
+[10:38:39] T+121s  db_up=0.000  5xx_ratio=0.086  alerts: HighErrorRate=pending, HighLatencyP95=pending, LowStockSkus=pending, DatabaseDown=firing
+[10:38:54] T+136s  db_up=0.000  5xx_ratio=0.095  alerts: DatabaseDown=firing, HighErrorRate=pending, HighLatencyP95=pending, LowStockSkus=pending
+[10:39:09] T+151s  db_up=0.000  5xx_ratio=0.107  alerts: HighErrorRate=pending, HighLatencyP95=pending, LowStockSkus=pending, DatabaseDown=firing
+[10:39:24] T+166s  db_up=0.000  5xx_ratio=0.116  alerts: HighErrorRate=pending, HighLatencyP95=pending, LowStockSkus=pending, DatabaseDown=firing
+[10:39:39] T+181s  db_up=0.000  5xx_ratio=0.203  alerts: HighErrorRate=pending, HighLatencyP95=pending, LowStockSkus=pending, DatabaseDown=firing
+[10:39:54] T+196s  db_up=0.000  5xx_ratio=0.216  alerts: DatabaseDown=firing, HighErrorRate=pending, HighLatencyP95=pending, LowStockSkus=pending
+[10:40:09] T+211s  db_up=0.000  5xx_ratio=0.232  alerts: HighErrorRate=pending, HighLatencyP95=pending, LowStockSkus=pending, DatabaseDown=firing
+[10:40:24] T+226s  db_up=0.000  5xx_ratio=0.248  alerts: DatabaseDown=firing, HighErrorRate=firing, HighLatencyP95=pending, LowStockSkus=firing
+[10:40:24] ALERT FIRING: HighErrorRate at T+226s
+[10:40:24] Alertmanager holds 3 active alert(s): HighErrorRate, DatabaseDown, LowStockSkus
+[10:40:24] RECOVERY: docker compose start postgres (outage lasted 226s)
+[10:40:28] API readiness restored 4s after Postgres start, with no API restart
+[10:40:28] Post-recovery order accepted: id 540
+[10:41:13] db_up=1.000  alerts 45s after recovery: HighErrorRate=firing, HighLatencyP95=pending, LowStockSkus=firing
+[10:41:13] --- SUMMARY ---
+[10:41:13] DatabaseDown: fired 76s after fault
+[10:41:13] HighErrorRate: fired 226s after fault
+[10:41:13] Outage duration: 226s | API self-recovery after DB start: 4s
