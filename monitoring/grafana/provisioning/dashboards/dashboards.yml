@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: walmartops
+    folder: WalmartOps
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
