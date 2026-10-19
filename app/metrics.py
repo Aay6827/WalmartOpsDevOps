@@ -14,3 +14,4 @@ RESERVATION_FAILURES = Counter(
     "inventory_reservation_failures_total", "Orders rejected for insufficient stock"
 )
 LOW_STOCK_SKUS = Gauge("inventory_low_stock_skus", "SKUs at or below the low-stock threshold")
+DB_UP = Gauge("db_up", "1 if the database answered the last probe, else 0")

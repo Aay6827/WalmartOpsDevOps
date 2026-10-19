@@ -46,3 +46,15 @@ groups:
           severity: warning
         annotations:
           summary: "More than 10 orders rejected for insufficient stock in 10 minutes"
+
+  - name: fulfilment-dependencies
+    rules:
+      - alert: DatabaseDown
+        expr: db_up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fulfilment API cannot reach PostgreSQL"
+          description: "db_up has been 0 for 30s; order and inventory writes are failing."
+          runbook: "docs/runbooks/database-down.md"

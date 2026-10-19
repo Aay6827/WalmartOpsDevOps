@@ -65,13 +65,21 @@ def ready(db: Session = Depends(get_db)):
 
 @app.get("/metrics")
 def prometheus_metrics(db: Session = Depends(get_db)):
-    low = (
-        db.query(func.count())
-        .select_from(InventoryItem)
-        .filter((InventoryItem.on_hand - InventoryItem.reserved) <= LOW_STOCK_THRESHOLD)
-        .scalar()
-    )
-    metrics.LOW_STOCK_SKUS.set(low or 0)
+    try:
+        low = (
+            db.query(func.count())
+            .select_from(InventoryItem)
+            .filter((InventoryItem.on_hand - InventoryItem.reserved) <= LOW_STOCK_THRESHOLD)
+            .scalar()
+        )
+        metrics.LOW_STOCK_SKUS.set(low or 0)
+        metrics.DB_UP.set(1)
+    except Exception:
+        metrics.DB_UP.set(0)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
