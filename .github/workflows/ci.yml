@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run pytest
+        run: python -m pytest
+
+  config-checks:
+    name: Config validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Prometheus config and alert rules
+        run: |
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v2.55.1 check config /etc/prometheus/prometheus.yml
+      - name: Validate Docker Compose file
+        run: docker compose config --quiet
+      - name: Validate Grafana dashboard JSON
+        run: python3 -c "import json; d=json.load(open('monitoring/grafana/dashboards/fulfilment-overview.json')); print('panels:', len(d['panels']))"
+      - name: Validate YAML files parse
+        run: |
+          pip install pyyaml
+          python3 - <<'PY'
+          import glob, yaml
+          files = glob.glob("monitoring/**/*.yml", recursive=True) + glob.glob(".github/workflows/*.yml") + ["docker-compose.yml"]
+          for f in files:
+              yaml.safe_load(open(f))
+              print("ok", f)
+          PY
+
+  integration:
+    name: Integration (compose stack)
+    runs-on: ubuntu-latest
+    needs: [test, config-checks]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the stack
+        run: docker compose up -d --build
+      - name: Wait for the API to be ready
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:30000/health/ready; then echo; exit 0; fi
+            sleep 3
+          done
+          echo "API never became ready"
+          docker compose logs --tail 100
+          exit 1
+      - name: Create an order end to end
+        run: |
+          curl -fsS -X POST http://localhost:30000/inventory -H 'Content-Type: application/json' \
+            -d '{"sku":"CI-1","name":"CI item","on_hand":10}'
+          curl -fsS -X POST http://localhost:30000/orders -H 'Content-Type: application/json' \
+            -d '{"customer_id":"C-CI","channel":"online","lines":[{"sku":"CI-1","quantity":2,"unit_price":5}]}'
+      - name: Check metrics and Prometheus scrape
+        run: |
+          curl -fsS http://localhost:30000/metrics | grep -E '^db_up 1'
+          sleep 30
+          curl -fsS http://localhost:30001/api/v1/targets | grep -q '"health":"up"'
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
