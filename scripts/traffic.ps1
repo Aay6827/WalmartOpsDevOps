@@ -21,12 +21,12 @@ if ($Mode -eq 'seed') {
         @('WMT-1005', 'Parents Choice Diapers', 500),
         @('WMT-1006', 'Marketside Salad Kit', 500),
         @('WMT-1007', 'Mainstays Bath Towel', 500),
-        @('WMT-1008', 'Limited Edition Thermos', 4)
+        @('WMT-1008', 'Limited Edition Thermos', 40)
     )
     foreach ($c in $catalog) {
         Api 'POST' '/inventory' @{ sku = $c[0]; name = $c[1]; on_hand = $c[2] } | Out-Null
     }
-    Write-Host "Seeded $($catalog.Count) SKUs (WMT-1008 is deliberately low-stock)"
+    Write-Host "Seeded $($catalog.Count) SKUs (WMT-1008 has 40 units; run -Mode stockout to drain it)"
     return
 }
 

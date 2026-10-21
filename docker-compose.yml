@@ -71,6 +71,15 @@ services:
       - prometheus
     restart: unless-stopped
 
+  webhook-sink:
+    image: python:3.12-slim
+    command: ["python", "/app/webhook_sink.py"]
+    volumes:
+      - ./scripts/webhook_sink.py:/app/webhook_sink.py:ro
+    ports:
+      - "30005:8080"
+    restart: unless-stopped
+
 volumes:
   pgdata:
   promdata:
