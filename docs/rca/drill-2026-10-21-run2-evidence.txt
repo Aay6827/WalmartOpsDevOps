@@ -1,0 +1,40 @@
+[10:51:20] DRILL (run2): PostgreSQL outage under live traffic
+[10:51:20] Baseline readiness: ready; alerts: none
+[10:51:21] Background traffic started; letting baseline settle for 30s
+[10:51:51] Baseline: db_up=1.000  5xx_ratio_1m=0.000  p95_1m=0.057s
+[10:51:51] FAULT INJECTED: docker compose stop postgres
+[10:52:07] T+ 16s  db_up=0.000  5xx_ratio_1m=0.000  p95_1m=0.058s  alerts: none
+[10:52:22] T+ 31s  db_up=0.000  5xx_ratio_1m=0.027  p95_1m=0.047s  alerts: DatabaseDown=pending
+[10:52:37] T+ 46s  db_up=0.000  5xx_ratio_1m=0.102  p95_1m=3.773s  alerts: DatabaseDown=pending
+[10:52:52] ALERT FIRING in Prometheus: DatabaseDown at T+61s
+[10:52:52] T+ 61s  db_up=0.000  5xx_ratio_1m=0.867  p95_1m=4.856s  alerts: DatabaseDown=firing
+[10:53:07] T+ 76s  db_up=0.000  5xx_ratio_1m=0.875  p95_1m=4.857s  alerts: DatabaseDown=firing
+[10:53:22] T+ 91s  db_up=0.000  5xx_ratio_1m=0.813  p95_1m=4.846s  alerts: DatabaseDown=firing, HighErrorRate=pending, HighErrorRateFastBurn=pending
+[10:53:38] T+106s  db_up=0.000  5xx_ratio_1m=0.824  p95_1m=4.848s  alerts: DatabaseDown=firing, HighErrorRate=pending, HighErrorRateFastBurn=pending, HighLatencyP95=pending
+[10:53:43] ALERT FIRING in Prometheus: HighErrorRateFastBurn at T+111s
+[10:53:53] T+121s  db_up=0.000  5xx_ratio_1m=0.813  p95_1m=4.846s  alerts: DatabaseDown=firing, HighErrorRate=pending, HighErrorRateFastBurn=firing, HighLatencyP95=pending
+[10:54:08] T+137s  db_up=0.000  5xx_ratio_1m=0.824  p95_1m=4.848s  alerts: DatabaseDown=firing, HighErrorRate=pending, HighErrorRateFastBurn=firing, HighLatencyP95=pending
+[10:54:23] T+152s  db_up=0.000  5xx_ratio_1m=0.813  p95_1m=4.846s  alerts: DatabaseDown=firing, HighErrorRate=pending, HighErrorRateFastBurn=firing, HighLatencyP95=pending
+[10:54:38] T+167s  db_up=0.000  5xx_ratio_1m=0.824  p95_1m=4.848s  alerts: DatabaseDown=firing, HighErrorRate=pending, HighErrorRateFastBurn=firing, HighLatencyP95=pending
+[10:54:53] T+182s  db_up=0.000  5xx_ratio_1m=0.824  p95_1m=4.848s  alerts: DatabaseDown=firing, HighErrorRate=pending, HighErrorRateFastBurn=firing, HighLatencyP95=pending
+[10:55:08] T+197s  db_up=0.000  5xx_ratio_1m=0.824  p95_1m=4.848s  alerts: DatabaseDown=firing, HighErrorRate=pending, HighErrorRateFastBurn=firing, HighLatencyP95=pending
+[10:55:13] ALERT FIRING in Prometheus: HighErrorRate at T+202s
+[10:55:13] RECOVERY: docker compose start postgres (outage lasted 202s)
+[10:55:17] API readiness restored 4s after Postgres start, with no API restart
+[10:55:17] Post-recovery order accepted: id 117
+[10:55:53] DatabaseDown cleared 40s after recovery
+[10:55:56] HighErrorRateFastBurn cleared 43s after recovery
+[10:57:44] db_up=1.000  alerts now: none
+[10:57:44] --- SUMMARY (before = run 1, polled every 15s; after = this run, polled every 5s) ---
+[10:57:44] Metric                               Run 1 (before)       run2 (after)    
+[10:57:44] DatabaseDown fired                   76s                  61s             
+[10:57:44] HighErrorRateFastBurn fired          n/a (new alert)      111s            
+[10:57:44] HighErrorRate (5m window) fired      226s                 202s            
+[10:57:44] First webhook notification           none (no receiver)   none            
+[10:57:44] API recovery after DB start          4s                   4s              
+[10:57:44] Peak 5xx ratio (1m window)           not captured         0.875           
+[10:57:44] Peak p95 latency (1m window)         not captured         4.857s          
+[10:57:44] 5xx responses in 5m window           not captured         61.106          
+[10:57:44] DatabaseDown cleared after recovery  not captured         40s             
+[10:57:44] FastBurn cleared after recovery      n/a                  43s             
+[10:57:44] Outage duration this run: 202s (run 1: 226s)

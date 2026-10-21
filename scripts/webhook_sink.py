@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 EVENTS = []
@@ -20,18 +21,29 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(raw)
             status = payload.get("status")
             alerts = [
-                {"alertname": a.get("labels", {}).get("alertname"), "status": a.get("status")}
+                {
+                    "alertname": a.get("labels", {}).get("alertname"),
+                    "status": a.get("status"),
+                    "startsAt": a.get("startsAt"),
+                }
                 for a in payload.get("alerts", [])
             ]
         except Exception:
             status, alerts = "unparseable", []
-        EVENTS.append({"seq": len(EVENTS) + 1, "status": status, "alerts": alerts})
-        print("NOTIFY", status, alerts, flush=True)
+        event = {
+            "seq": len(EVENTS) + 1,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "status": status,
+            "alerts": alerts,
+        }
+        EVENTS.append(event)
+        print("NOTIFY", event, flush=True)
         self._send(200, '{"ok": true}')
 
     def do_GET(self):
         if self.path == "/events":
-            self._send(200, json.dumps(EVENTS))
+            # An object (not a bare array) avoids PowerShell 5.1 array-unwrapping quirks.
+            self._send(200, json.dumps({"events": EVENTS}))
         else:
             self._send(200, '{"status": "ok"}')
 

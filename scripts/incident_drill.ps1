@@ -43,7 +43,11 @@ function MapText($m) {
     return (($m.GetEnumerator() | Sort-Object Name | ForEach-Object { "{0}={1}" -f $_.Name, $_.Value }) -join ', ')
 }
 function SinkEvents {
-    try { return @(Invoke-RestMethod "$sink/events" -TimeoutSec 5) } catch { return @() }
+    try {
+        $r = Invoke-RestMethod "$sink/events" -TimeoutSec 5
+        if ($null -eq $r.events) { return @() }
+        return @($r.events)
+    } catch { return @() }
 }
 function UpdatePeaks {
     $r = PromValue $ratio1m
@@ -55,7 +59,7 @@ function ProcessEvents($t0) {
     foreach ($e in @(SinkEvents)) {
         if ($e.seq -le $script:seen) { continue }
         $script:seen = $e.seq
-        $elapsed = [int]((Get-Date) - $t0).TotalSeconds
+        $elapsed = [int]([DateTimeOffset]::Parse($e.ts).LocalDateTime - $t0).TotalSeconds
         $names = (@($e.alerts) | ForEach-Object { "{0}:{1}" -f $_.alertname, $_.status }) -join ', '
         Note ("WEBHOOK notification #{0} at T+{1}s: {2}" -f $e.seq, $elapsed, $names) 'Magenta'
         foreach ($a in @($e.alerts)) {
