@@ -86,3 +86,33 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down -v
+  k8s-validate:
+    name: Kubernetes manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render with kustomize
+        run: kubectl kustomize k8s > rendered.yaml
+      - name: Schema-validate rendered manifests
+        run: |
+          docker run --rm -v "$PWD:/work:ro" ghcr.io/yannh/kubeconform:v0.6.7 \
+            -strict -summary -ignore-missing-schemas /work/rendered.yaml
+
+  terraform-validate:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+      - name: Format check (non-blocking)
+        run: terraform fmt -check -recursive -diff
+        continue-on-error: true
+      - name: Init (no backend)
+        run: terraform init -backend=false
+      - name: Validate
+        run: terraform validate

@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: walmartops
+resources:
+  - namespace.yaml
+  - secret.yaml
+  - postgres.yaml
+  - api.yaml
+  - networkpolicy.yaml
+# On AKS, point this at your registry: newName: <acr>.azurecr.io/fulfilment-api, newTag: <git sha>
+images:
+  - name: walmartopsdevops-api
+    newName: walmartopsdevops-api
+    newTag: latest
