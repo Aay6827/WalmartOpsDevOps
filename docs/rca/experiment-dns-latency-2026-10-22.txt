@@ -1,0 +1,29 @@
+Experiment started 2026-10-22 09:18:13
+A. Baseline (postgres running): name lookups from inside the api container
+  postgres                   0.019s  resolved
+  alertmanager               0.000s  resolved
+  no-such-host               7.893s  FAILED: [Errno -2] Name or service not known
+  no-such-host.invalid       0.034s  FAILED: [Errno -2] Name or service not known
+  request timings, healthy:
+  GET /health/live   HTTP 200            0.02s
+  GET /health/ready  HTTP 200            0.01s
+  GET /metrics       HTTP 200            0.02s
+  GET /inventory     HTTP 200            0.02s
+
+B. postgres stopped
+  name lookups from inside the api container:
+  postgres                   3.975s  FAILED: [Errno -2] Name or service not known
+  alertmanager               0.001s  resolved
+  no-such-host               7.835s  FAILED: [Errno -2] Name or service not known
+  no-such-host.invalid       0.036s  FAILED: [Errno -2] Name or service not known
+  request timings, postgres down (two rounds):
+  GET /health/live   HTTP 200            0.01s
+  GET /health/ready  HTTP 503            4.01s
+  GET /metrics       HTTP 200            3.89s
+  GET /inventory     HTTP 500            3.88s
+  GET /health/live   HTTP 200            0.03s
+  GET /health/ready  HTTP 503            3.85s
+  GET /metrics       HTTP 200            3.87s
+  GET /inventory     HTTP 500            3.88s
+
+C. postgres restarted; API ready again 2s later: True
