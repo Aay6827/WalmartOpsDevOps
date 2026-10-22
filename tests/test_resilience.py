@@ -1,5 +1,8 @@
-from app.database import get_db
+from fastapi.routing import APIRoute
+
+from app.database import SessionLocal, get_db
 from app.main import app
+from app.probe import refresh_db_gauges
 
 
 class BrokenSession:
@@ -22,18 +25,17 @@ def broken_db():
     yield BrokenSession()
 
 
-def test_metrics_keeps_serving_when_database_is_down(client):
-    app.dependency_overrides[get_db] = broken_db
-    try:
-        r = client.get("/metrics")
-        assert r.status_code == 200
-        assert "db_up 0.0" in r.text
-    finally:
-        app.dependency_overrides.clear()
+def test_metrics_route_has_no_database_dependency():
+    route = next(r for r in app.routes if isinstance(r, APIRoute) and r.path == "/metrics")
+    assert route.dependant.dependencies == []
 
-    r = client.get("/metrics")
-    assert r.status_code == 200
-    assert "db_up 1.0" in r.text
+
+def test_probe_reports_database_down_then_up(client):
+    assert refresh_db_gauges(lambda: BrokenSession()) is False
+    assert "db_up 0.0" in client.get("/metrics").text
+
+    assert refresh_db_gauges(SessionLocal) is True
+    assert "db_up 1.0" in client.get("/metrics").text
 
 
 def test_readiness_reports_503_when_database_is_down(client):

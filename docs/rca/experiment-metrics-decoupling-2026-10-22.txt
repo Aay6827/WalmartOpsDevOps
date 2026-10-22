@@ -1,0 +1,13 @@
+API ready: True
+Experiment started 2026-10-22 09:22:13
+A. Healthy: db_up=1.0
+  GET /metrics       HTTP 200            0.01s
+
+B. postgres stopped (before this change, /metrics took about 3.9 s here)
+  db_up flipped to 0 at T+12s
+  slowest /metrics response while postgres was down: 0.03s
+  GET /health/live   HTTP 200            0.01s
+  GET /health/ready  HTTP 503            3.87s
+  GET /inventory     HTTP 500            3.87s
+
+C. postgres restarted; db_up back to 1 after 2s

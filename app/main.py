@@ -1,4 +1,5 @@
 ﻿import time
+from contextlib import asynccontextmanager
 from collections import defaultdict
 from typing import Optional
 
@@ -8,6 +9,7 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app import metrics
+from app.probe import start_probe
 from app.config import APP_VERSION, LOW_STOCK_THRESHOLD, SERVICE_NAME
 from app.database import Base, engine, get_db
 from app.models import InventoryItem, Order, OrderLine
@@ -21,7 +23,16 @@ from app.schemas import (
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Walmart Fulfilment API", version=APP_VERSION)
+@asynccontextmanager
+async def lifespan(_app):
+    stop = start_probe()
+    try:
+        yield
+    finally:
+        stop.set()
+
+
+app = FastAPI(title="Walmart Fulfilment API", version=APP_VERSION, lifespan=lifespan)
 
 TRANSITIONS = {
     "CREATED": {"PICKING", "CANCELLED"},
@@ -64,22 +75,9 @@ def ready(db: Session = Depends(get_db)):
 
 
 @app.get("/metrics")
-def prometheus_metrics(db: Session = Depends(get_db)):
-    try:
-        low = (
-            db.query(func.count())
-            .select_from(InventoryItem)
-            .filter((InventoryItem.on_hand - InventoryItem.reserved) <= LOW_STOCK_THRESHOLD)
-            .scalar()
-        )
-        metrics.LOW_STOCK_SKUS.set(low or 0)
-        metrics.DB_UP.set(1)
-    except Exception:
-        metrics.DB_UP.set(0)
-        try:
-            db.rollback()
-        except Exception:
-            pass
+def prometheus_metrics():
+    # No database access here. db_up and the low-stock gauge are refreshed by a
+    # background probe (app/probe.py), so scrapes stay fast during a database outage.
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
