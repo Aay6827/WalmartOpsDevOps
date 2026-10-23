@@ -1,5 +1,7 @@
 # RCA: PostgreSQL outage under load (game-day drill)
 
+> Follow-up work and a second drill are documented in the [addendum](2026-10-19-postgres-outage-drill-addendum.md). Several action items below have since been implemented.
+
 | | |
 |---|---|
 | **Type** | Planned game-day drill (fault injected deliberately; traffic is synthetic) |

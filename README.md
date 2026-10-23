@@ -10,10 +10,10 @@ A DevOps-focused portfolio project: an omnichannel **order and inventory service
 
 | Area | What is in the repo | Status |
 |---|---|---|
-| Application | FastAPI service: inventory with stock reservation, order lifecycle state machine, health probes, Prometheus metrics | 22 automated tests passing |
+| Application | FastAPI service: inventory with stock reservation, order lifecycle state machine, health probes, Prometheus metrics | 23 automated tests passing |
 | Containers | Non-root Dockerfile with healthcheck; Docker Compose stack of 5 services | Run and verified locally; exercised end to end in CI |
 | CI | GitHub Actions, 5 jobs: unit tests, config validation, compose integration test, Kubernetes manifest validation, Terraform validate | Passing |
-| Observability | Prometheus, Alertmanager, Grafana (10-panel dashboard provisioned as code), 6 alert rules | Run and verified locally |
+| Observability | Prometheus, Alertmanager, Grafana (10-panel dashboard provisioned as code), 7 alert rules | Run and verified locally |
 | Reliability | Game-day drill (PostgreSQL outage under load), RCA, 3 runbooks | Executed; evidence committed |
 | Kubernetes | Kustomize base: Deployment, HPA, PodDisruptionBudget, StatefulSet, NetworkPolicy, probes, resource limits, non-root and read-only filesystem | Schema-validated in CI; not run on a cluster |
 | IaC | Terraform for Azure: AKS, ACR, Log Analytics, AcrPull role | `terraform validate` in CI; not applied to a subscription |
@@ -26,6 +26,7 @@ flowchart LR
     api -->|"SQL"| pg[("PostgreSQL :30004")]
     prom["Prometheus :30001"] -->|"scrape /metrics"| api
     prom -->|"firing alerts"| am["Alertmanager :30003"]
+    am -->|"webhook"| sink["Webhook sink :30005"]
     graf["Grafana :30002"] -->|"PromQL"| prom
 ```
 
@@ -36,6 +37,7 @@ flowchart LR
 | 30002 | Grafana (dev login: `admin` / `walmartops`) |
 | 30003 | Alertmanager |
 | 30004 | PostgreSQL |
+| 30005 | Webhook sink (records Alertmanager notifications; stand-in for Slack or email) |
 
 All credentials in this repo are development placeholders.
 
@@ -86,11 +88,12 @@ Custom metrics: `http_requests_total`, `http_request_duration_seconds`, `orders_
 | `ApiDown` | Target not scrapable for 1m | critical |
 | `DatabaseDown` | `db_up == 0` for 30s | critical |
 | `HighErrorRate` | 5xx ratio above 5% (5m window) for 2m | critical |
+| `HighErrorRateFastBurn` | 5xx ratio above 20% (1m window) for 30s | critical |
 | `HighLatencyP95` | p95 above 500 ms for 5m | warning |
 | `LowStockSkus` | Any SKU at or below threshold for 5m | warning |
 | `ReservationFailureSpike` | More than 10 stock rejections in 10m | warning |
 
-Design note: `/metrics` deliberately keeps working when PostgreSQL is down and reports `db_up 0`. An earlier design queried the database inside the metrics handler, which would have blinded monitoring during exactly the outage it should report.
+Design note: `/metrics` never touches the database. A background probe (`app/probe.py`, every 5 s) updates `db_up` and the low-stock gauge. An earlier design queried the database inside the metrics handler; an experiment showed that during an outage this made each scrape take about 3.9 s against Prometheus's default 10 s scrape timeout. After the change the slowest scrape during an outage was 0.03 s.
 
 ## Game-day drill: PostgreSQL outage
 
@@ -104,6 +107,18 @@ PostgreSQL was stopped for 226 seconds under continuous synthetic traffic (`scri
 | API recovery after PostgreSQL restart | 4 s, no API restart |
 
 The RCA also lists what went poorly (slow error-rate alert, no notification receiver, noise from seed data) with six follow-up actions.
+
+### Follow-up: run 2 and what it found
+
+After implementing most of the follow-ups (fast-burn alert, webhook receiver, database timeouts, seed data fix) the drill was repeated. Full detail and caveats: [`docs/rca/2026-10-19-postgres-outage-drill-addendum.md`](docs/rca/2026-10-19-postgres-outage-drill-addendum.md).
+
+| Measurement (Prometheus's own alert-state history) | Run 2 |
+|---|---|
+| `DatabaseDown` fired | about 50 s |
+| `HighErrorRateFastBurn` fired | about 100 s |
+| `HighErrorRate` (5m window) fired | about 190 s |
+
+The new fast-burn alert fired about 90 s before the 5-minute alert in the same run. The existing alerts are not claimed to be faster than in run 1, because run 1 was timed with 15 s polling and its Prometheus data no longer exists. The follow-up work also found that the roughly 4 s request failures during the outage come from Docker DNS resolution of the stopped container's name, which the database timeouts do not affect.
 
 Runbooks: [`database-down`](docs/runbooks/database-down.md), [`high-error-rate`](docs/runbooks/high-error-rate.md), [`api-down`](docs/runbooks/api-down.md).
 
@@ -146,9 +161,13 @@ docs/           RCA, drill evidence, runbooks
 
 ## Known gaps and next steps
 
-- Alertmanager has no notification receiver configured (RCA action 2).
-- Add a fast-burn error alert with a short window (RCA action 1) and re-run the drill to compare timings.
-- Set database connection and pool timeouts so requests fail fast during an outage (RCA action 4).
+Done since the first drill: fast-burn alert, webhook receiver (delivery confirmed in smoke tests; delivery timing during the drills was not measured), seed data no longer triggers `LowStockSkus`, and `/metrics` decoupled from the database.
+
+Open:
+
+- User-facing endpoints still take about 4 s to fail when PostgreSQL is stopped under Docker Compose, because Docker's DNS removes the stopped container's name and resolving an unknown name is slow. Database timeouts do not help here; a circuit breaker or a shorter resolver timeout would. In Kubernetes a Service name persists, so the failure mode would differ and has not been tested.
+- The drill's load generator is sequential, so offered load collapses when requests slow down; a concurrent generator would make error counts comparable between runs.
+- Notification delivery latency is not measured; scraping Alertmanager's own metrics from Prometheus would provide it.
 - Remote Terraform state, per-environment configuration and `terraform plan` on pull requests.
 - Container image build and push to a registry from CI, then deploy.
 - Database migrations (the app currently creates tables at startup).
